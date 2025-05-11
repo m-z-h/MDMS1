@@ -88,8 +88,8 @@ router.get('/pdf/:patientId', auth(['nurse', 'doctor']), async (req, res) => {
   }
 });
 
-// Get patient details (doctor or patient)
-router.get('/:id', auth(['doctor', 'patient']), async (req, res) => {
+// Get patient details (doctor, nurse, or patient)
+router.get('/:id', auth(['doctor', 'nurse', 'patient']), async (req, res) => {
   try {
     const patient = await Patient.findById(req.params.id);
     if (!patient) return res.status(404).json({ message: 'Patient not found' });
@@ -97,8 +97,7 @@ router.get('/:id', auth(['doctor', 'patient']), async (req, res) => {
     if (req.user.role === 'patient' && patient.email !== req.user.email) {
       return res.status(403).json({ message: 'Unauthorized' });
     }
-
-    if (req.user.role === 'doctor' && patient.department !== req.user.department) {
+    if ((req.user.role === 'doctor' || req.user.role === 'nurse') && patient.department !== req.user.department) {
       return res.status(403).json({ message: 'Unauthorized: Patient not in your department' });
     }
 
@@ -109,6 +108,41 @@ router.get('/:id', auth(['doctor', 'patient']), async (req, res) => {
     res.json(response);
   } catch (error) {
     console.error('Get patient error:', error.message, error.stack);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update patient details (doctor or nurse)
+router.put('/:id', auth(['doctor', 'nurse']), async (req, res) => {
+  const { name, email, dob, gender, contact } = req.body;
+  try {
+    const patient = await Patient.findById(req.params.id);
+    if (!patient) return res.status(404).json({ message: 'Patient not found' });
+
+    if (patient.department !== req.user.department) {
+      return res.status(403).json({ message: 'Unauthorized: Patient not in your department' });
+    }
+
+    // Nurses can only update limited fields
+    if (req.user.role === 'nurse') {
+      if (email || dob || gender) {
+        return res.status(403).json({ message: 'Nurses can only update name and contact' });
+      }
+      patient.name = name || patient.name;
+      patient.contact = contact || patient.contact;
+    } else {
+      // Doctors can update all fields
+      patient.name = name || patient.name;
+      patient.email = email || patient.email;
+      patient.dob = dob || patient.dob;
+      patient.gender = gender || patient.gender;
+      patient.contact = contact || patient.contact;
+    }
+
+    await patient.save();
+    res.json({ message: 'Patient updated successfully', patient });
+  } catch (error) {
+    console.error('Update patient error:', error.message, error.stack);
     res.status(500).json({ message: 'Server error' });
   }
 });

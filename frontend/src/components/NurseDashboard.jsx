@@ -7,6 +7,9 @@ function NurseDashboard() {
   const { user, logoutUser } = useContext(AuthContext);
   const [patientForm, setPatientForm] = useState({ name: '', email: '', dob: '', gender: '', contact: '' });
   const [vitalForm, setVitalForm] = useState({ patientId: '', bloodPressure: '', heartRate: '', temperature: '' });
+  const [patientId, setPatientId] = useState('');
+  const [patientData, setPatientData] = useState(null);
+  const [editForm, setEditForm] = useState({ name: '', contact: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [pdfUrl, setPdfUrl] = useState('');
@@ -49,6 +52,40 @@ function NurseDashboard() {
       setError('');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update vitals');
+      setSuccess('');
+    }
+  };
+
+  const handleFetchPatient = async () => {
+    try {
+      const res = await axios.get(`http://localhost:5000/api/patient/${patientId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      setPatientData(res.data);
+      setEditForm({
+        name: res.data.name,
+        contact: res.data.contact,
+      });
+      setError('');
+      setSuccess('Patient details fetched successfully');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to fetch patient');
+      setPatientData(null);
+      setSuccess('');
+    }
+  };
+
+  const handleEditPatient = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.put(`http://localhost:5000/api/patient/${patientId}`, editForm, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      setPatientData(res.data.patient);
+      setSuccess('Patient details updated successfully');
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update patient');
       setSuccess('');
     }
   };
@@ -143,6 +180,60 @@ function NurseDashboard() {
             Register Patient
           </button>
         </form>
+      </div>
+      <div className="bg-white p-6 rounded shadow-md mb-6">
+        <h2 className="text-xl font-semibold mb-4">Fetch Patient by ID</h2>
+        <div className="flex mb-4">
+          <input
+            type="text"
+            value={patientId}
+            onChange={(e) => setPatientId(e.target.value)}
+            placeholder="Enter Patient ID"
+            className="w-full px-3 py-2 border rounded mr-2"
+          />
+          <button
+            onClick={handleFetchPatient}
+            className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
+          >
+            Fetch
+          </button>
+        </div>
+        {patientData && (
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Patient Details</h3>
+            <p>Name: {patientData.name}</p>
+            <p>Email: {patientData.email}</p>
+            <p>Date of Birth: {new Date(patientData.dob).toLocaleDateString()}</p>
+            <p>Gender: {patientData.gender}</p>
+            <p>Contact: {patientData.contact}</p>
+            <p>Hospital: {patientData.hospital}</p>
+            <p>Department: {patientData.department}</p>
+            <h3 className="text-lg font-semibold mt-4 mb-2">Edit Patient</h3>
+            <form onSubmit={handleEditPatient}>
+              <div className="mb-4">
+                <label className="block text-gray-700">Name</label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className="w-full px-3 py-2 border rounded"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700">Contact</label>
+                <input
+                  type="text"
+                  value={editForm.contact}
+                  onChange={(e) => setEditForm({ ...editForm, contact: e.target.value })}
+                  className="w-full px-3 py-2 border rounded"
+                />
+              </div>
+              <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">
+                Update Patient
+              </button>
+            </form>
+          </div>
+        )}
       </div>
       <div className="bg-white p-6 rounded shadow-md">
         <h2 className="text-xl font-semibold mb-4">Update Vitals</h2>
