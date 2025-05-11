@@ -40,7 +40,7 @@ function Login() {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email (e.g., nurse@hospital1.com)"
+          placeholder="Email (e.g., nurse@manipalhospital.com)"
           className="w-full p-2 mb-2 border"
           required
         />

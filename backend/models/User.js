@@ -7,11 +7,9 @@ const userSchema = new mongoose.Schema({
     unique: true,
     validate: {
       validator: function (value) {
-        // Doctors and nurses must use hospital domain emails
         if (this.role === 'doctor' || this.role === 'nurse') {
-          return /^[a-zA-Z0-9._%+-]+@(hospital1|hospital2|hospital3|hospital4|hospital5)\.com$/.test(value);
+          return /^[a-zA-Z0-9._%+-]+@(manipalhospital|genesishospital|fortishospital|apollohospital|rubyhospital)\.com$/.test(value);
         }
-        // Patients can use any valid email
         return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value);
       },
       message: 'Invalid email format or hospital domain for doctor/nurse'
@@ -21,7 +19,7 @@ const userSchema = new mongoose.Schema({
   role: { type: String, enum: ['doctor', 'nurse', 'patient'], required: true },
   hospital: { 
     type: String, 
-    enum: ['hospital1', 'hospital2', 'hospital3', 'hospital4', 'hospital5'], 
+    enum: ['Manipal Hospital', 'Genesis Hospital', 'Fortis Hospital', 'Apollo Hospital', 'Ruby General Hospital'], 
     required: function() { return this.role !== 'patient'; } 
   },
   department: { 

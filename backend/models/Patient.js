@@ -11,8 +11,16 @@ const patientSchema = new mongoose.Schema({
   dob: { type: Date, required: true },
   gender: { type: String, enum: ['male', 'female', 'other'], required: true },
   contact: { type: String, required: true },
-  hospital: { type: String, enum: ['hospital1', 'hospital2', 'hospital3', 'hospital4', 'hospital5'], required: true },
-  department: { type: String, enum: ['ortho', 'cardio', 'neuro', 'onco', 'general'], required: true },
+  hospital: { 
+    type: String, 
+    enum: ['Manipal Hospital', 'Genesis Hospital', 'Fortis Hospital', 'Apollo Hospital', 'Ruby General Hospital'], 
+    required: true 
+  },
+  department: { 
+    type: String, 
+    enum: ['ortho', 'cardio', 'neuro', 'onco', 'general'], 
+    required: true 
+  },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   createdAt: { type: Date, default: Date.now }
 });

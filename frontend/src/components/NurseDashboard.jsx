@@ -9,6 +9,7 @@ function NurseDashboard() {
   const [vitalForm, setVitalForm] = useState({ patientId: '', bloodPressure: '', heartRate: '', temperature: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [pdfUrl, setPdfUrl] = useState('');
   const navigate = useNavigate();
 
   const handlePatientSubmit = async (e) => {
@@ -19,10 +20,12 @@ function NurseDashboard() {
       });
       setPatientForm({ name: '', email: '', dob: '', gender: '', contact: '' });
       setSuccess(`Patient registered! ID: ${res.data.patientId}, Credentials: ${res.data.patientCredentials.email}/${res.data.patientCredentials.password}`);
+      setPdfUrl(res.data.pdfUrl);
       setError('');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to register patient');
       setSuccess('');
+      setPdfUrl('');
     }
   };
 
@@ -72,6 +75,13 @@ function NurseDashboard() {
       </div>
       {error && <p className="text-red-500 mb-4">{error}</p>}
       {success && <p className="text-green-500 mb-4">{success}</p>}
+      {pdfUrl && (
+        <p className="text-blue-500 mb-4">
+          <a href={`http://localhost:5000${pdfUrl}`} download className="underline">
+            Download Patient PDF
+          </a>
+        </p>
+      )}
       <div className="bg-white p-6 rounded shadow-md mb-6">
         <h2 className="text-xl font-semibold mb-4">Register Patient</h2>
         <form onSubmit={handlePatientSubmit}>

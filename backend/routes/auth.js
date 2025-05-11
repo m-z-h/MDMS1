@@ -6,6 +6,14 @@ const BlacklistedToken = require('../models/BlacklistedToken');
 const auth = require('../middleware/auth');
 const router = express.Router();
 
+const hospitalEmailDomains = {
+  'Manipal Hospital': 'manipalhospital.com',
+  'Genesis Hospital': 'genesishospital.com',
+  'Fortis Hospital': 'fortishospital.com',
+  'Apollo Hospital': 'apollohospital.com',
+  'Ruby General Hospital': 'rubyhospital.com'
+};
+
 // Register
 router.post('/register', async (req, res) => {
   const { email, password, role, hospital, department } = req.body;
@@ -15,13 +23,23 @@ router.post('/register', async (req, res) => {
     if (!email || !password || !role) {
       return res.status(400).json({ message: 'Email, password, and role are required' });
     }
-    if (role !== 'patient' && (!hospital || !department)) {
+    if (role !== 'doctor' && role !== 'nurse') {
+      return res.status(400).json({ message: 'Only doctor or nurse roles can register' });
+    }
+    if (!hospital || !department) {
       return res.status(400).json({ message: 'Hospital and department are required for doctor/nurse' });
     }
 
     // Check if user exists
     let user = await User.findOne({ email });
     if (user) return res.status(400).json({ message: 'User already exists' });
+
+    // Validate email domain matches hospital
+    const emailDomain = email.split('@')[1];
+    const expectedDomain = hospitalEmailDomains[hospital];
+    if (!expectedDomain || emailDomain !== expectedDomain) {
+      return res.status(400).json({ message: `Email domain must be @${expectedDomain} for ${hospital}` });
+    }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);

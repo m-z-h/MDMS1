@@ -3,6 +3,9 @@ const bcrypt = require('bcryptjs');
 const Patient = require('../models/Patient');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const { generatePatientPDF } = require('../utils/pdfGenerator');
+const path = require('path');
+const fs = require('fs');
 const router = express.Router();
 
 // Create patient (nurse only)
@@ -50,14 +53,38 @@ router.post('/', auth(['nurse']), async (req, res) => {
     });
     await user.save();
 
+    // Generate PDF
+    const pdfDir = path.join(__dirname, '..', 'pdfs');
+    if (!fs.existsSync(pdfDir)) {
+      fs.mkdirSync(pdfDir, { recursive: true });
+    }
+    const pdfPath = path.join(pdfDir, `${patient._id}.pdf`);
+    await generatePatientPDF(patient, { email, password }, hospital, pdfPath);
+    const pdfUrl = `/api/patient/pdf/${patient._id}`;
+
     res.status(201).json({ 
       message: 'Patient registered', 
       patientId: patient._id, 
-      patientCredentials: { email, password } 
+      patientCredentials: { email, password },
+      pdfUrl 
     });
   } catch (error) {
     console.error('Patient register error:', error.message, error.stack);
     res.status(500).json({ message: `Server error: ${error.message}` });
+  }
+});
+
+// Serve PDF
+router.get('/pdf/:patientId', auth(['nurse', 'doctor']), async (req, res) => {
+  try {
+    const pdfPath = path.join(__dirname, '..', 'pdfs', `${req.params.patientId}.pdf`);
+    if (!fs.existsSync(pdfPath)) {
+      return res.status(404).json({ message: 'PDF not found' });
+    }
+    res.download(pdfPath, `patient-${req.params.patientId}.pdf`);
+  } catch (error) {
+    console.error('PDF serve error:', error.message, error.stack);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -71,8 +98,8 @@ router.get('/:id', auth(['doctor', 'patient']), async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized' });
     }
 
-    if (req.user.role === 'doctor' && (patient.hospital !== req.user.hospital || patient.department !== req.user.department)) {
-      return res.status(403).json({ message: 'Unauthorized' });
+    if (req.user.role === 'doctor' && patient.department !== req.user.department) {
+      return res.status(403).json({ message: 'Unauthorized: Patient not in your department' });
     }
 
     const response = req.user.role === 'patient' 

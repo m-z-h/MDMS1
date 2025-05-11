@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { register } from '../api/auth';
 
 function Register() {
@@ -7,19 +7,35 @@ function Register() {
     email: '',
     password: '',
     role: 'nurse',
-    hospital: 'hospital1',
+    hospital: 'Manipal Hospital',
     department: 'ortho'
   });
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
+  const hospitalEmailDomains = {
+    'Manipal Hospital': 'manipalhospital.com',
+    'Genesis Hospital': 'genesishospital.com',
+    'Fortis Hospital': 'fortishospital.com',
+    'Apollo Hospital': 'apollohospital.com',
+    'Ruby General Hospital': 'rubyhospital.com'
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Validate email domain matches hospital
+    const emailDomain = formData.email.split('@')[1];
+    const expectedDomain = hospitalEmailDomains[formData.hospital];
+    if (emailDomain !== expectedDomain) {
+      setError(`Email domain must be @${expectedDomain} for ${formData.hospital}`);
+      return;
+    }
     try {
-      await register(formData);
+      const response = await register(formData);
+      localStorage.setItem('token', response.token); // Store token
       navigate('/login');
     } catch (err) {
-      setError(err);
+      setError(err.message || 'Registration failed');
     }
   };
 
@@ -37,7 +53,7 @@ function Register() {
           name="email"
           value={formData.email}
           onChange={handleChange}
-          placeholder="Email (e.g., nurse@hospital1.com)"
+          placeholder="Email (e.g., nurse@manipalhospital.com)"
           className="w-full p-2 mb-2 border"
           required
         />
@@ -59,7 +75,6 @@ function Register() {
         >
           <option value="doctor">Doctor</option>
           <option value="nurse">Nurse</option>
-          <option value="patient">Patient</option>
         </select>
         <select
           name="hospital"
@@ -68,19 +83,18 @@ function Register() {
           className="w-full p-2 mb-2 border"
           required
         >
-          <option value="hospital1">Hospital 1</option>
-          <option value="hospital2">Hospital 2</option>
-          <option value="hospital3">Hospital 3</option>
-          <option value="hospital4">Hospital 4</option>
-          <option value="hospital5">Hospital 5</option>
+          <option value="Manipal Hospital">Manipal Hospital</option>
+          <option value="Genesis Hospital">Genesis Hospital</option>
+          <option value="Fortis Hospital">Fortis Hospital</option>
+          <option value="Apollo Hospital">Apollo Hospital</option>
+          <option value="Ruby General Hospital">Ruby General Hospital</option>
         </select>
         <select
           name="department"
           value={formData.department}
           onChange={handleChange}
           className="w-full p-2 mb-2 border"
-          disabled={formData.role === 'patient'}
-          required={formData.role !== 'patient'}
+          required
         >
           <option value="">Select Department</option>
           <option value="ortho">Orthopedics</option>
@@ -93,6 +107,9 @@ function Register() {
           Register
         </button>
       </form>
+      <p className="mt-4 text-center">
+        Already have an account? <Link to="/login" className="text-blue-500 hover:underline">Login here</Link>
+      </p>
     </div>
   );
 }

@@ -1,131 +1,97 @@
 const express = require('express');
-const auth = require('../middleware/auth');
 const MedicalRecord = require('../models/MedicalRecord');
 const Patient = require('../models/Patient');
+const auth = require('../middleware/auth');
 const { encryptData, decryptData } = require('../utils/abe');
 const router = express.Router();
 
 // Create medical record (doctor or nurse)
 router.post('/', auth(['doctor', 'nurse']), async (req, res) => {
-  const { patientId, data, hospital, department } = req.body;
+  const { patientId, data } = req.body;
+
   try {
-    if (!patientId || !data || !hospital || !department) {
-      return res.status(400).json({ message: 'All fields are required' });
-    }
-
-    if (req.user.hospital !== hospital || req.user.department !== department) {
-      return res.status(403).json({ message: 'Unauthorized' });
-    }
-
-    if (req.user.role === 'nurse' && !data.vitals) {
-      return res.status(403).json({ message: 'Nurses can only submit vitals' });
+    if (!patientId || !data) {
+      return res.status(400).json({ message: 'Patient ID and data are required' });
     }
 
     const patient = await Patient.findById(patientId);
     if (!patient) return res.status(404).json({ message: 'Patient not found' });
 
-    const { encryptedData, iv } = await encryptData(data, patientId, hospital, department);
+    if (patient.department !== req.user.department) {
+      return res.status(403).json({ message: 'Unauthorized: Patient not in your department' });
+    }
+
+    const encryptedData = encryptData(data, process.env.ENCRYPTION_KEY);
 
     const record = new MedicalRecord({
       patientId,
       data: encryptedData,
-      iv,
-      hospital,
-      department,
-      createdBy: req.user.id
+      createdBy: req.user.id,
+      hospital: patient.hospital,
+      department: patient.department
     });
+
     await record.save();
-
-    res.status(201).json(record);
+    res.status(201).json({ message: 'Medical record created' });
   } catch (error) {
-    console.error('Create record error:', error);
+    console.error('Create medical record error:', error.message, error.stack);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Update medical record (nurse for vitals, doctor for all)
-router.put('/:id', auth(['doctor', 'nurse']), async (req, res) => {
-  const { data } = req.body;
+// Get medical records by patient ID (doctor or patient)
+router.get('/patient/:patientId', auth(['doctor', 'patient']), async (req, res) => {
   try {
-    if (!data) return res.status(400).json({ message: 'Data is required' });
-
-    const record = await MedicalRecord.findById(req.params.id);
-    if (!record) return res.status(404).json({ message: 'Record not found' });
-
-    if (record.hospital !== req.user.hospital || record.department !== req.user.department) {
-      return res.status(403).json({ message: 'Unauthorized' });
-    }
-
-    if (req.user.role === 'nurse' && !data.vitals) {
-      return res.status(403).json({ message: 'Nurses can only update vitals' });
-    }
-
-    const { encryptedData, iv } = await encryptData(data, record.patientId, record.hospital, record.department);
-    record.data = encryptedData;
-    record.iv = iv;
-    await record.save();
-
-    res.json(record);
-  } catch (error) {
-    console.error('Update record error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Get medical record (doctor or patient)
-router.get('/:id', auth(['doctor', 'patient']), async (req, res) => {
-  try {
-    const record = await MedicalRecord.findById(req.params.id);
-    if (!record) return res.status(404).json({ message: 'Record not found' });
-
-    if (req.user.role === 'patient') {
-      const patient = await Patient.findById(record.patientId);
-      if (patient.email !== req.user.email) {
-        return res.status(403).json({ message: 'Unauthorized' });
-      }
-    }
-
-    if (req.user.role === 'doctor' && (record.hospital !== req.user.hospital || record.department !== req.user.department)) {
-      return res.status(403).json({ message: 'Unauthorized' });
-    }
-
-    const decryptedData = await decryptData(record.data, record.iv, record.patientId, record.hospital, record.department);
-    const response = { ...record.toObject(), data: decryptedData };
-
-    if (req.user.role === 'patient') {
-      res.json({ patientId: response.patientId, data: { vitals: decryptedData.vitals || {} } });
-    } else {
-      res.json(response);
-    }
-  } catch (error) {
-    console.error('Get record error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Get all medical records for a patient (patient only)
-router.get('/patient/:id', auth(['patient']), async (req, res) => {
-  try {
-    const { id } = req.params;
-    if (id !== req.user.id) {
-      return res.status(403).json({ message: 'Unauthorized' });
-    }
-
-    const patient = await Patient.findOne({ email: req.user.email });
+    const patient = await Patient.findById(req.params.patientId);
     if (!patient) return res.status(404).json({ message: 'Patient not found' });
 
-    const records = await MedicalRecord.find({ patientId: patient._id });
-    const decryptedRecords = await Promise.all(records.map(async record => {
-      const decryptedData = await decryptData(record.data, record.iv, record.patientId, record.hospital, record.department);
-      return {
-        ...record.toObject(),
-        data: { vitals: decryptedData.vitals || {} }
-      };
+    if (req.user.role === 'patient' && patient.email !== req.user.email) {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+
+    if (req.user.role === 'doctor' && patient.department !== req.user.department) {
+      return res.status(403).json({ message: 'Unauthorized: Patient not in your department' });
+    }
+
+    const records = await MedicalRecord.find({ patientId: req.params.patientId });
+    const decryptedRecords = records.map(record => ({
+      ...record._doc,
+      data: decryptData(record.data, process.env.ENCRYPTION_KEY)
     }));
 
     res.json(decryptedRecords);
   } catch (error) {
-    console.error('Get patient records error:', error);
+    console.error('Get medical records error:', error.message, error.stack);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update medical record (doctor only)
+router.put('/:id', auth(['doctor']), async (req, res) => {
+  const { data } = req.body;
+
+  try {
+    if (!data) {
+      return res.status(400).json({ message: 'Data is required' });
+    }
+
+    const record = await MedicalRecord.findById(req.params.id);
+    if (!record) return res.status(404).json({ message: 'Medical record not found' });
+
+    const patient = await Patient.findById(record.patientId);
+    if (!patient) return res.status(404).json({ message: 'Patient not found' });
+
+    if (patient.department !== req.user.department) {
+      return res.status(403).json({ message: 'Unauthorized: Patient not in your department' });
+    }
+
+    record.data = encryptData(data, process.env.ENCRYPTION_KEY);
+    record.updatedAt = new Date();
+    await record.save();
+
+    res.json({ message: 'Medical record updated' });
+  } catch (error) {
+    console.error('Update medical record error:', error.message, error.stack);
     res.status(500).json({ message: 'Server error' });
   }
 });
