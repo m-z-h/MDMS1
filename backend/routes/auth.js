@@ -75,13 +75,8 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    // Verify MongoDB connection
-    if (!require('mongoose').connection.readyState) {
-      throw new Error('MongoDB is not connected');
-    }
-
     // Find user
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select('+password');
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
@@ -100,12 +95,30 @@ router.post('/login', async (req, res) => {
       throw new Error('JWT_SECRET is not defined');
     }
     const token = jwt.sign(
-      { id: user._id, role: user.role, hospital: user.hospital, department: user.department },
+      { 
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        hospital: user.hospital,
+        department: user.department
+      },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
 
-    res.json({ token, user: { id: user._id, email, role: user.role, hospital: user.hospital, department: user.department } });
+    // Remove password from response
+    const userResponse = {
+      id: user._id,
+      email: user.email,
+      role: user.role,
+      hospital: user.hospital,
+      department: user.department
+    };
+
+    res.json({ 
+      token, 
+      user: userResponse
+    });
   } catch (error) {
     console.error('Login error:', error.message, error.stack);
     res.status(500).json({ message: `Server error: ${error.message}` });

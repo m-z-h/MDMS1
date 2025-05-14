@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const BlacklistedToken = require('../models/BlacklistedToken');
+const User = require('../models/User');
 
 module.exports = function (roles = []) {
   return async (req, res, next) => {
@@ -15,7 +16,20 @@ module.exports = function (roles = []) {
       }
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = decoded; // { id, role, hospital, department }
+      
+      // Get full user data from database
+      const user = await User.findById(decoded.id).select('-password');
+      if (!user) {
+        return res.status(401).json({ message: 'User not found' });
+      }
+
+      req.user = {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        hospital: user.hospital,
+        department: user.department
+      };
 
       if (roles.length && !roles.includes(req.user.role)) {
         return res.status(403).json({ message: 'Access denied' });

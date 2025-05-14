@@ -31,6 +31,11 @@ router.post('/', auth(['nurse']), async (req, res) => {
     const hospital = req.user.hospital;
     const department = req.user.department;
 
+    if (!hospital || !department) {
+      return res.status(400).json({ message: 'Nurse must have hospital and department assigned' });
+    }
+
+    // Create new patient without saving
     patient = new Patient({
       name,
       email,
@@ -41,7 +46,19 @@ router.post('/', auth(['nurse']), async (req, res) => {
       department,
       createdBy: req.user.id
     });
-    await patient.save();
+
+    try {
+      await patient.save();
+    } catch (error) {
+      console.error('Patient save error:', error);
+      if (error.message.includes('Failed to generate patient ID')) {
+        return res.status(400).json({ message: error.message });
+      }
+      if (error.code === 11000) { // Duplicate key error
+        return res.status(400).json({ message: 'Patient ID or email already exists' });
+      }
+      throw error; // Re-throw other errors to be caught by the outer try-catch
+    }
 
     // Create user account for patient
     const password = Math.random().toString(36).slice(-8); // Random 8-char password
@@ -102,7 +119,16 @@ router.get('/:id', auth(['doctor', 'nurse', 'patient']), async (req, res) => {
     }
 
     const response = req.user.role === 'patient' 
-      ? { name: patient.name, email: patient.email }
+      ? { 
+          _id: patient._id,
+          name: patient.name, 
+          email: patient.email,
+          dob: patient.dob,
+          gender: patient.gender,
+          contact: patient.contact,
+          hospital: patient.hospital,
+          department: patient.department
+        }
       : patient;
 
     res.json(response);
@@ -158,6 +184,39 @@ router.get('/hospital/:hospital', auth(['doctor']), async (req, res) => {
     res.json(patients);
   } catch (error) {
     console.error('Get patients error:', error.message, error.stack);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get patient by email (doctor, nurse, or patient)
+router.get('/by-email/:email', auth(['doctor', 'nurse', 'patient']), async (req, res) => {
+  try {
+    const patient = await Patient.findOne({ email: req.params.email });
+    if (!patient) return res.status(404).json({ message: 'Patient not found' });
+
+    if (req.user.role === 'patient' && patient.email !== req.user.email) {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+    if ((req.user.role === 'doctor' || req.user.role === 'nurse') && patient.department !== req.user.department) {
+      return res.status(403).json({ message: 'Unauthorized: Patient not in your department' });
+    }
+
+    const response = req.user.role === 'patient' 
+      ? { 
+          _id: patient._id,
+          name: patient.name, 
+          email: patient.email,
+          dob: patient.dob,
+          gender: patient.gender,
+          contact: patient.contact,
+          hospital: patient.hospital,
+          department: patient.department
+        }
+      : patient;
+
+    res.json(response);
+  } catch (error) {
+    console.error('Get patient by email error:', error.message, error.stack);
     res.status(500).json({ message: 'Server error' });
   }
 });
