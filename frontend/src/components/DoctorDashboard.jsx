@@ -2,6 +2,7 @@ import { useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
+import { API_ENDPOINTS } from '../config/api';
 
 function DoctorDashboard() {
   const { user, logoutUser } = useContext(AuthContext);
@@ -18,7 +19,7 @@ function DoctorDashboard() {
   useEffect(() => {
     const fetchPatients = async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/patient/hospital/${user.hospital}`, {
+        const res = await axios.get(`${API_ENDPOINTS.patient}/hospital/${user.hospital}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         });
         setPatients(res.data);
@@ -32,7 +33,7 @@ function DoctorDashboard() {
   const handleFetchPatient = async () => {
     try {
       // Fetch patient details
-      const patientRes = await axios.get(`http://localhost:5000/api/patient/${patientId}`, {
+      const patientRes = await axios.get(`${API_ENDPOINTS.patient}/${patientId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       setPatientData(patientRes.data);
@@ -45,7 +46,7 @@ function DoctorDashboard() {
       });
 
       // Fetch medical records
-      const recordsRes = await axios.get(`http://localhost:5000/api/medical-record/patient/${patientId}`, {
+      const recordsRes = await axios.get(`${API_ENDPOINTS.medicalRecord}/patient/${patientId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       setMedicalRecords(recordsRes.data);
@@ -63,7 +64,7 @@ function DoctorDashboard() {
   const handleEditPatient = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.put(`http://localhost:5000/api/patient/${patientId}`, editForm, {
+      const res = await axios.put(`${API_ENDPOINTS.patient}/${patientId}`, editForm, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       setPatientData(res.data.patient);

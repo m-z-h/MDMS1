@@ -2,6 +2,7 @@ import { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
+import { API_ENDPOINTS } from '../config/api';
 
 function NurseDashboard() {
   const { user, logoutUser } = useContext(AuthContext);
@@ -18,7 +19,7 @@ function NurseDashboard() {
   const handlePatientSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post('http://localhost:5000/api/patient', patientForm, {
+      const res = await axios.post(API_ENDPOINTS.patient, patientForm, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       setPatientForm({ name: '', email: '', dob: '', gender: '', contact: '' });
@@ -35,7 +36,7 @@ function NurseDashboard() {
   const handleVitalSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:5000/api/medical-record', {
+      await axios.post(API_ENDPOINTS.medicalRecord, {
         patientId: vitalForm.patientId,
         data: { vitals: {
           bloodPressure: vitalForm.bloodPressure,
@@ -58,7 +59,7 @@ function NurseDashboard() {
 
   const handleFetchPatient = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/patient/${patientId}`, {
+      const res = await axios.get(`${API_ENDPOINTS.patient}/${patientId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       setPatientData(res.data);
@@ -78,7 +79,7 @@ function NurseDashboard() {
   const handleEditPatient = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.put(`http://localhost:5000/api/patient/${patientId}`, editForm, {
+      const res = await axios.put(`${API_ENDPOINTS.patient}/${patientId}`, editForm, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       setPatientData(res.data.patient);
@@ -114,9 +115,7 @@ function NurseDashboard() {
       {success && <p className="text-green-500 mb-4">{success}</p>}
       {pdfUrl && (
         <p className="text-blue-500 mb-4">
-          <a href={`http://localhost:5000${pdfUrl}`} download className="underline">
-            Download Patient PDF
-          </a>
+                    <a href={`${API_ENDPOINTS.patient}${pdfUrl}`} download className="underline">            Download Patient PDF          </a>
         </p>
       )}
       <div className="bg-white p-6 rounded shadow-md mb-6">
