@@ -7,6 +7,8 @@ const patientRoutes = require('./routes/patient');
 const medicalRecordRoutes = require('./routes/medicalRecord');
 const assignmentRoutes = require('./routes/assignment');
 
+const allowedOrigins = ['https://mdms-peach.vercel.app'];
+
 const app = express();
 
 // Updated CORS configuration
